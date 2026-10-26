@@ -196,7 +196,6 @@ export default function App() {
     };
   });
 
-  // Persistent default PO, MO & Location memory state
   const [defaultLineParams, setDefaultLineParams] = useState({
     erpPoId: '4780459015',
     erpMoId: '400003601315',
@@ -230,11 +229,8 @@ export default function App() {
 
   const [savedInvoicesList, setSavedInvoicesList] = useState([]);
   const [historySearch, setHistorySearch] = useState('');
-  
-  // Date-Range Filter State
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
-  
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const [newAgencyForm, setNewAgencyForm] = useState({
@@ -400,7 +396,6 @@ export default function App() {
     }
   };
 
-  // Safe search and Date-range filter
   const filteredHistory = (savedInvoicesList || []).filter((inv) => {
     if (!inv) return false;
     const search = String(historySearch || '').toLowerCase();
@@ -648,7 +643,6 @@ export default function App() {
       updated[index].amount = Math.round(q * r * 100) / 100;
     }
 
-    // Remember PO, MO and Location as defaults for future items
     if (['erpPoId', 'erpMoId', 'locationName'].includes(field)) {
       setDefaultLineParams((prev) => ({ ...prev, [field]: val }));
     }
@@ -671,7 +665,6 @@ export default function App() {
   };
 
   const addMeasurementRow = () => {
-    // Pick the last row's PO, MO, Location if available, else pick from defaultLineParams
     const fallbackSource = measurementItems.length > 0 
       ? measurementItems[measurementItems.length - 1] 
       : defaultLineParams;
@@ -698,7 +691,6 @@ export default function App() {
   };
 
   const handleSaveToBackend = async () => {
-    // 1. Prevent duplicate empty saves
     if (!measurementItems || measurementItems.length === 0) {
       alert('बिल सेव्ह करण्यासाठी Measurement Items मध्ये किमान एक आयटम असणे आवश्यक आहे!');
       return;
@@ -734,7 +726,6 @@ export default function App() {
       localStorage.removeItem('draft_invoice_header');
       localStorage.removeItem('draft_measurement_items');
 
-      // 2. Clear measurement items completely after save to prevent duplicate saves
       setMeasurementItems([]);
 
       const nextNo = generateNextInvoiceNo(savedNo);
@@ -755,23 +746,23 @@ export default function App() {
 
   const renderDocumentSet = (copyStamp) => (
     <div key={copyStamp} className="document-set" style={{ pageBreakAfter: 'always' }}>
-      {/* PAGE 1: TAX INVOICE */}
+      {/* PAGE 1: TAX INVOICE WITH ITEMIZED DETAILS */}
       <div className="a4-page page-1" contentEditable suppressContentEditableWarning>
         <div className="page-inner">
           <div className="page-top-content">
             <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 'bold' }}>{copyStamp}</div>
-            <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '24px', letterSpacing: '0.5px' }}>{activeAgencyData.agencyName}</h1>
-              <p style={{ margin: '3px 0', fontSize: '12px' }}>{activeAgencyData.address}</p>
-              <p style={{ margin: '2px 0', fontSize: '11px' }}>E-mail : {activeAgencyData.email} | Mob: {activeAgencyData.mobile}</p>
+            <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '4px', marginBottom: '4px' }}>
+              <h1 style={{ margin: 0, fontSize: '20px', letterSpacing: '0.5px' }}>{activeAgencyData.agencyName}</h1>
+              <p style={{ margin: '2px 0', fontSize: '11px' }}>{activeAgencyData.address}</p>
+              <p style={{ margin: '1px 0', fontSize: '10.5px' }}>E-mail : {activeAgencyData.email} | Mob: {activeAgencyData.mobile}</p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #000', fontSize: '12px', padding: '6px', fontWeight: 'bold' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #000', fontSize: '11px', padding: '4px 6px', fontWeight: 'bold' }}>
               <div>PAN :- {activeAgencyData.panNo}</div>
               <div style={{ textAlign: 'right' }}>GST No. :- {activeAgencyData.gstNo}</div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #000', fontSize: '11.5px' }}>
-              <div style={{ borderRight: '1px solid #000', padding: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #000', fontSize: '11px' }}>
+              <div style={{ borderRight: '1px solid #000', padding: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                   <span>Invoice No: <strong>{invoiceHeader.invoiceNo}</strong></span>
                   <span>Date: <strong>{invoiceHeader.invoiceDate}</strong></span>
                 </div>
@@ -779,10 +770,10 @@ export default function App() {
                 <p style={{ margin: '2px 0' }}><strong>The Executive Engineer,</strong></p>
                 <p style={{ margin: '2px 0' }}><strong>M.S.E.D.C.L. {targetDivisionName}, Jalna.</strong></p>
               </div>
-              <div style={{ padding: '8px' }}>
-                <p style={{ margin: '0 0 6px 0', fontWeight: 'bold' }}>LOA.No: {invoiceHeader.loaNo}, Date: {invoiceHeader.loaDate}</p>
-                <p style={{ margin: 0, fontSize: '11px', lineHeight: '1.4' }}><strong>Sub - </strong> {activeAgencyData.subject}</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', borderTop: '1px solid #000', marginTop: '8px', paddingTop: '6px' }}>
+              <div style={{ padding: '6px' }}>
+                <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>LOA.No: {invoiceHeader.loaNo}, Date: {invoiceHeader.loaDate}</p>
+                <p style={{ margin: 0, fontSize: '10px', lineHeight: '1.3' }}><strong>Sub - </strong> {activeAgencyData.subject}</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', borderTop: '1px solid #000', marginTop: '6px', paddingTop: '4px' }}>
                   <div>Division:-</div>
                   <div>{targetDivisionName === 'Division No.II' ? 'Jalna II' : 'Jalna I'}</div>
                   <div>Sub-Division:-</div>
@@ -790,78 +781,102 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: '#000' }} border="1">
+
+            {/* ITEMIZED DETAILED INVOICE TABLE WITH PART DESCRIPTION, RATE & QTY */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', color: '#000', marginTop: '4px' }} border="1">
               <thead>
                 <tr style={{ background: '#f8fafc', textAlign: 'center', fontWeight: 'bold' }}>
-                  <th style={{ width: '40px', padding: '10px 6px' }}>Sr.</th>
-                  <th style={{ padding: '10px 6px' }}>Particulars / Description of Work</th>
-                  <th style={{ width: '120px', padding: '10px 6px' }}>Rate / %</th>
-                  <th style={{ width: '130px', padding: '10px 6px', textAlign: 'right' }}>Amount (₹)</th>
+                  <th style={{ width: '30px', padding: '4px 2px' }}>Sr.</th>
+                  <th style={{ padding: '4px 6px', textAlign: 'left' }}>Item / Description of Work & Parts</th>
+                  <th style={{ width: '45px', padding: '4px 2px' }}>Unit</th>
+                  <th style={{ width: '40px', padding: '4px 2px' }}>Qty</th>
+                  <th style={{ width: '65px', padding: '4px 4px', textAlign: 'right' }}>Rate (₹)</th>
+                  <th style={{ width: '80px', padding: '4px 6px', textAlign: 'right' }}>Amount (₹)</th>
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td style={{ textAlign: 'center', padding: '10px 6px' }}>1</td>
-                  <td style={{ padding: '10px 6px' }}>Sch H4 - 33 KV Breakdown Over Head Line</td>
-                  <td style={{ textAlign: 'center', padding: '10px 6px' }}>-</td>
-                  <td style={{ textAlign: 'right', padding: '10px 6px' }}>{Number(invoiceHeader.sch33kvAmount).toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td style={{ textAlign: 'center', padding: '10px 6px' }}>2</td>
-                  <td style={{ padding: '10px 6px' }}>Sch H6 - 11 KV Breakdown Over Head Line</td>
-                  <td style={{ textAlign: 'center', padding: '10px 6px' }}>-</td>
-                  <td style={{ textAlign: 'right', padding: '10px 6px' }}>{calculatedSch11kv.toFixed(2)}</td>
-                </tr>
+                {Number(invoiceHeader.sch33kvAmount) > 0 && (
+                  <tr>
+                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
+                    <td style={{ padding: '4px 6px' }}><strong>Sch H4 - 33 KV Breakdown Over Head Line</strong></td>
+                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>LS</td>
+                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
+                    <td style={{ textAlign: 'right', padding: '4px 4px' }}>{Number(invoiceHeader.sch33kvAmount).toFixed(2)}</td>
+                    <td style={{ textAlign: 'right', padding: '4px 6px' }}>{Number(invoiceHeader.sch33kvAmount).toFixed(2)}</td>
+                  </tr>
+                )}
+                {measurementItems && measurementItems.length > 0 ? (
+                  measurementItems.map((item, i) => (
+                    <tr key={i}>
+                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>{(Number(invoiceHeader.sch33kvAmount) > 0 ? 2 : 1) + i}</td>
+                      <td style={{ padding: '4px 6px' }}>
+                        <div><strong>{item.description || item.itemCode || 'Breakdown Maintenance Item'}</strong></div>
+                        {item.itemCode && <div style={{ fontSize: '9px', color: '#475569' }}>Part Code: {item.itemCode} | Cat: {item.itemCategory}</div>}
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>{item.unit}</td>
+                      <td style={{ textAlign: 'center', padding: '4px 2px', fontWeight: 'bold' }}>{item.qty}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 4px' }}>{Number(item.rate || 0).toFixed(2)}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 6px' }}>{Number(item.amount || 0).toFixed(2)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
+                    <td style={{ padding: '4px 6px' }}>Sch H6 - 11 KV Breakdown Over Head Line</td>
+                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>LS</td>
+                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
+                    <td style={{ textAlign: 'right', padding: '4px 4px' }}>{calculatedSch11kv.toFixed(2)}</td>
+                    <td style={{ textAlign: 'right', padding: '4px 6px' }}>{calculatedSch11kv.toFixed(2)}</td>
+                  </tr>
+                )}
+
                 <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
-                  <td style={{ textAlign: 'center', padding: '10px 6px' }}>3</td>
-                  <td style={{ padding: '10px 6px' }}>Gross Total of Works</td>
-                  <td style={{ textAlign: 'center', padding: '10px 6px' }}>-</td>
-                  <td style={{ textAlign: 'right', padding: '10px 6px' }}>{totalBreakdown.toFixed(2)}</td>
+                  <td colSpan="5" style={{ textAlign: 'right', padding: '5px 6px' }}>Gross Total of Works (Total Breakdown):</td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px' }}>{totalBreakdown.toFixed(2)}</td>
                 </tr>
                 {Number(invoiceHeader.belowRatePercent) > 0 && (
                   <tr>
-                    <td style={{ textAlign: 'center', padding: '10px 6px' }}>4</td>
-                    <td style={{ padding: '10px 6px' }}>Less: Below Tender Rate Rebate</td>
-                    <td style={{ textAlign: 'center', padding: '10px 6px' }}>{Number(invoiceHeader.belowRatePercent).toFixed(2)}%</td>
-                    <td style={{ textAlign: 'right', padding: '10px 6px' }}>- {belowRateDeduction.toFixed(2)}</td>
+                    <td colSpan="4" style={{ textAlign: 'right', padding: '4px 6px' }}>Less: Below Tender Rate Rebate</td>
+                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>{Number(invoiceHeader.belowRatePercent).toFixed(2)}%</td>
+                    <td style={{ textAlign: 'right', padding: '4px 6px' }}>- {belowRateDeduction.toFixed(2)}</td>
                   </tr>
                 )}
                 <tr style={{ fontWeight: 'bold' }}>
-                  <td colSpan="3" style={{ textAlign: 'right', padding: '10px 6px' }}>Total Taxable Value (Sub-Total):</td>
-                  <td style={{ textAlign: 'right', padding: '10px 6px' }}>{subTotal.toFixed(2)}</td>
+                  <td colSpan="5" style={{ textAlign: 'right', padding: '5px 6px' }}>Total Taxable Value (Sub-Total):</td>
+                  <td style={{ textAlign: 'right', padding: '5px 6px' }}>{subTotal.toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td colSpan="2" style={{ textAlign: 'right', padding: '9px 6px' }}>Central GST (CGST)</td>
-                  <td style={{ textAlign: 'center', padding: '9px 6px' }}>9.00%</td>
-                  <td style={{ textAlign: 'right', padding: '9px 6px' }}>{cgst.toFixed(2)}</td>
+                  <td colSpan="4" style={{ textAlign: 'right', padding: '4px 6px' }}>Central GST (CGST)</td>
+                  <td style={{ textAlign: 'center', padding: '4px 2px' }}>9.00%</td>
+                  <td style={{ textAlign: 'right', padding: '4px 6px' }}>{cgst.toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td colSpan="2" style={{ textAlign: 'right', padding: '9px 6px' }}>State GST (SGST)</td>
-                  <td style={{ textAlign: 'center', padding: '9px 6px' }}>9.00%</td>
-                  <td style={{ textAlign: 'right', padding: '9px 6px' }}>{sgst.toFixed(2)}</td>
+                  <td colSpan="4" style={{ textAlign: 'right', padding: '4px 6px' }}>State GST (SGST)</td>
+                  <td style={{ textAlign: 'center', padding: '4px 2px' }}>9.00%</td>
+                  <td style={{ textAlign: 'right', padding: '4px 6px' }}>{sgst.toFixed(2)}</td>
                 </tr>
-                <tr style={{ fontWeight: 'bold', background: '#f1f5f9', fontSize: '13px' }}>
-                  <td colSpan="3" style={{ textAlign: 'right', padding: '12px 6px' }}>Grand Total (Total Invoice Value):</td>
-                  <td style={{ textAlign: 'right', padding: '12px 6px', fontSize: '14px' }}>₹{grandTotal.toFixed(2)}</td>
+                <tr style={{ fontWeight: 'bold', background: '#f1f5f9', fontSize: '11.5px' }}>
+                  <td colSpan="5" style={{ textAlign: 'right', padding: '6px 6px' }}>Grand Total (Total Invoice Value):</td>
+                  <td style={{ textAlign: 'right', padding: '6px 6px', fontSize: '12px' }}>₹{grandTotal.toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>
             
             {/* Amount in words */}
-            <div style={{ border: '1px solid #000', borderTop: 'none', padding: '12px 14px', fontSize: '12px', background: '#fff' }}>
-              <div style={{ fontWeight: 'bold', color: '#334155', textTransform: 'uppercase', fontSize: '11px' }}>Amount Chargeable (in words):</div>
-              <div style={{ fontWeight: 'bold', color: '#000000', marginTop: '4px', fontSize: '13px' }}>
+            <div style={{ border: '1px solid #000', borderTop: 'none', padding: '6px 10px', fontSize: '10.5px', background: '#fff' }}>
+              <div style={{ fontWeight: 'bold', color: '#334155', textTransform: 'uppercase', fontSize: '9.5px' }}>Amount Chargeable (in words):</div>
+              <div style={{ fontWeight: 'bold', color: '#000000', marginTop: '2px', fontSize: '11px' }}>
                 {convertNumberToIndianWords(grandTotal)}
               </div>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.5fr', border: '1.5px solid #000', fontSize: '10px', minHeight: '130px', marginTop: '20px' }}>
-            <div style={{ padding: '10px', borderRight: '1px solid #000', lineHeight: '1.5' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.5fr', border: '1.5px solid #000', fontSize: '9.5px', minHeight: '90px', marginTop: '10px' }}>
+            <div style={{ padding: '6px', borderRight: '1px solid #000', lineHeight: '1.4' }}>
               <strong>Declaration :- </strong>I/WE HEREBY CERTIFY MY/OUR REGISTRATION CERTIFICATE UNDR MAHARASHTRA VALUE ADDED TAX ACT 2005 IS IN FORCE...
             </div>
-            <div style={{ textAlign: 'center', padding: '10px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '11px' }}>For {activeAgencyData.agencyName}</div>
-              <div style={{ borderTop: '1px solid #000', paddingTop: '6px', fontSize: '11px', fontWeight: 'bold' }}>Authorised Signatory</div>
+            <div style={{ textAlign: 'center', padding: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '10.5px' }}>For {activeAgencyData.agencyName}</div>
+              <div style={{ borderTop: '1px solid #000', paddingTop: '4px', fontSize: '10.5px', fontWeight: 'bold' }}>Authorised Signatory</div>
             </div>
           </div>
         </div>
@@ -1035,8 +1050,8 @@ export default function App() {
           }
 
           .page-1 table th, .page-1 table td {
-            padding: 10px 6px !important;
-            font-size: 12.5px !important;
+            padding: 5px 4px !important;
+            font-size: 10.5px !important;
           }
 
           .page-2 table td {
@@ -1146,7 +1161,6 @@ export default function App() {
               </p>
             </div>
             
-            {/* Date-Range Filter Controls */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b' }}>From:</span>
@@ -1714,18 +1728,31 @@ export default function App() {
                         </td>
                         <td style={{ padding: '6px' }}>
                           <select
+                            value={item.itemCode || ''}
                             onChange={(e) => handleAutoSuggestPart(idx, e.target.value)}
-                            defaultValue=""
-                            style={{ width: '150px', padding: '6px', fontWeight: 'bold', borderRadius: '4px' }}
+                            style={{ width: '190px', padding: '6px', fontWeight: 'bold', borderRadius: '4px' }}
                           >
-                            <option value="" disabled>-- Auto Suggest --</option>
+                            <option value="">-- Auto Suggest --</option>
                             {currentAgency.catalog?.filter((p) => p.category === item.itemCategory).map((p) => (
-                              <option key={p.id} value={p.code}>{p.code} - {p.name.substring(0, 16)}...</option>
+                              <option key={p.id} value={p.code}>
+                                {p.code} - {p.name} (₹{p.rate})
+                              </option>
                             ))}
                           </select>
+                          {item.itemCode && (
+                            <div style={{ fontSize: '10.5px', color: '#0369a1', fontWeight: 'bold', marginTop: '3px', background: '#e0f2fe', padding: '2px 5px', borderRadius: '3px' }}>
+                              ✓ Rate: ₹{item.rate} / {item.unit}
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '6px' }}>
-                          <input type="text" value={item.description} onChange={(e) => handleMeasurementChange(idx, 'description', e.target.value)} style={{ width: '160px', padding: '6px', borderRadius: '4px' }} />
+                          <input 
+                            type="text" 
+                            placeholder="Part Description"
+                            value={item.description} 
+                            onChange={(e) => handleMeasurementChange(idx, 'description', e.target.value)} 
+                            style={{ width: '210px', padding: '6px', borderRadius: '4px', fontWeight: '500' }} 
+                          />
                         </td>
                         <td style={{ padding: '6px' }}>
                           <select value={item.unit} onChange={(e) => handleMeasurementChange(idx, 'unit', e.target.value)} style={{ width: '65px', padding: '6px', borderRadius: '4px' }}>
