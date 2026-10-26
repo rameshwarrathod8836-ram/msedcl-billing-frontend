@@ -658,7 +658,7 @@ export default function App() {
   };
 
   const addMeasurementRow = () => {
-    const last = measurementItems[measurementItems.length - 1] || {};
+    const last = measurementItems.length > 0 ? measurementItems[measurementItems.length - 1] : {};
     setMeasurementItems([
       ...measurementItems,
       {
@@ -677,11 +677,16 @@ export default function App() {
   };
 
   const removeMeasurementRow = (idx) => {
-    if (measurementItems.length === 1) return;
     setMeasurementItems(measurementItems.filter((_, i) => i !== idx));
   };
 
   const handleSaveToBackend = async () => {
+    // 1. Prevent duplicate empty saves
+    if (!measurementItems || measurementItems.length === 0) {
+      alert('बिल सेव्ह करण्यासाठी Measurement Items मध्ये किमान एक आयटम असणे आवश्यक आहे!');
+      return;
+    }
+
     setSaving(true);
     setSaveSuccess(null);
     try {
@@ -712,8 +717,16 @@ export default function App() {
       localStorage.removeItem('draft_invoice_header');
       localStorage.removeItem('draft_measurement_items');
 
+      // 2. Clear measurement items completely after save to prevent duplicate saves
+      setMeasurementItems([]);
+
       const nextNo = generateNextInvoiceNo(savedNo);
-      setInvoiceHeader((prev) => ({ ...prev, invoiceNo: nextNo }));
+      setInvoiceHeader((prev) => ({ 
+        ...prev, 
+        invoiceNo: nextNo, 
+        sch33kvAmount: 0.0, 
+        belowRatePercent: 0.0 
+      }));
 
       fetchAllSavedInvoices();
     } catch (e) {
@@ -1659,54 +1672,62 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {measurementItems.map((item, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '6px' }}>
-                        <input type="text" placeholder="PO ID" value={item.erpPoId} onChange={(e) => handleMeasurementChange(idx, 'erpPoId', e.target.value)} style={{ width: '85px', padding: '6px', marginBottom: '3px', borderRadius: '4px' }} />
-                        <input type="text" placeholder="MO ID" value={item.erpMoId} onChange={(e) => handleMeasurementChange(idx, 'erpMoId', e.target.value)} style={{ width: '85px', padding: '6px', borderRadius: '4px' }} />
-                      </td>
-                      <td style={{ padding: '6px' }}>
-                        <input type="text" value={item.locationName} onChange={(e) => handleMeasurementChange(idx, 'locationName', e.target.value)} style={{ width: '120px', padding: '6px', borderRadius: '4px' }} />
-                      </td>
-                      <td style={{ padding: '6px' }}>
-                        <select value={item.itemCategory} onChange={(e) => handleMeasurementChange(idx, 'itemCategory', e.target.value)} style={{ width: '110px', padding: '6px', borderRadius: '4px' }}>
-                          <option value="Material MIGO">Material MIGO</option>
-                          <option value="Services SES">Services SES</option>
-                          <option value="Centages SES">Centages SES</option>
-                        </select>
-                      </td>
-                      <td style={{ padding: '6px' }}>
-                        <select
-                          onChange={(e) => handleAutoSuggestPart(idx, e.target.value)}
-                          defaultValue=""
-                          style={{ width: '150px', padding: '6px', fontWeight: 'bold', borderRadius: '4px' }}
-                        >
-                          <option value="" disabled>-- Auto Suggest --</option>
-                          {currentAgency.catalog?.filter((p) => p.category === item.itemCategory).map((p) => (
-                            <option key={p.id} value={p.code}>{p.code} - {p.name.substring(0, 16)}...</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={{ padding: '6px' }}>
-                        <input type="text" value={item.description} onChange={(e) => handleMeasurementChange(idx, 'description', e.target.value)} style={{ width: '160px', padding: '6px', borderRadius: '4px' }} />
-                      </td>
-                      <td style={{ padding: '6px' }}>
-                        <select value={item.unit} onChange={(e) => handleMeasurementChange(idx, 'unit', e.target.value)} style={{ width: '65px', padding: '6px', borderRadius: '4px' }}>
-                          {UNITS_LIST.map((u) => <option key={u} value={u}>{u}</option>)}
-                        </select>
-                      </td>
-                      <td style={{ padding: '6px' }}>
-                        <input type="number" value={item.qty} onChange={(e) => handleMeasurementChange(idx, 'qty', e.target.value)} style={{ width: '55px', padding: '6px', fontWeight: 'bold', borderRadius: '4px' }} />
-                      </td>
-                      <td style={{ padding: '6px' }}>
-                        <input type="number" value={item.rate} onChange={(e) => handleMeasurementChange(idx, 'rate', e.target.value)} style={{ width: '75px', padding: '6px', borderRadius: '4px' }} />
-                      </td>
-                      <td style={{ padding: '6px', fontWeight: 'bold', color: '#000' }}>₹{Number(item.amount || 0).toFixed(2)}</td>
-                      <td style={{ padding: '6px', textAlign: 'center' }}>
-                        <button onClick={() => removeMeasurementRow(idx)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
+                  {measurementItems.length === 0 ? (
+                    <tr>
+                      <td colSpan="10" style={{ textAlign: 'center', padding: '25px', color: '#64748b', fontWeight: 'bold', background: '#f8fafc' }}>
+                        नवीन बिलासाठी वरील ➕ Add Line Item वर क्लिक करा!
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    measurementItems.map((item, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '6px' }}>
+                          <input type="text" placeholder="PO ID" value={item.erpPoId} onChange={(e) => handleMeasurementChange(idx, 'erpPoId', e.target.value)} style={{ width: '85px', padding: '6px', marginBottom: '3px', borderRadius: '4px' }} />
+                          <input type="text" placeholder="MO ID" value={item.erpMoId} onChange={(e) => handleMeasurementChange(idx, 'erpMoId', e.target.value)} style={{ width: '85px', padding: '6px', borderRadius: '4px' }} />
+                        </td>
+                        <td style={{ padding: '6px' }}>
+                          <input type="text" value={item.locationName} onChange={(e) => handleMeasurementChange(idx, 'locationName', e.target.value)} style={{ width: '120px', padding: '6px', borderRadius: '4px' }} />
+                        </td>
+                        <td style={{ padding: '6px' }}>
+                          <select value={item.itemCategory} onChange={(e) => handleMeasurementChange(idx, 'itemCategory', e.target.value)} style={{ width: '110px', padding: '6px', borderRadius: '4px' }}>
+                            <option value="Material MIGO">Material MIGO</option>
+                            <option value="Services SES">Services SES</option>
+                            <option value="Centages SES">Centages SES</option>
+                          </select>
+                        </td>
+                        <td style={{ padding: '6px' }}>
+                          <select
+                            onChange={(e) => handleAutoSuggestPart(idx, e.target.value)}
+                            defaultValue=""
+                            style={{ width: '150px', padding: '6px', fontWeight: 'bold', borderRadius: '4px' }}
+                          >
+                            <option value="" disabled>-- Auto Suggest --</option>
+                            {currentAgency.catalog?.filter((p) => p.category === item.itemCategory).map((p) => (
+                              <option key={p.id} value={p.code}>{p.code} - {p.name.substring(0, 16)}...</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={{ padding: '6px' }}>
+                          <input type="text" value={item.description} onChange={(e) => handleMeasurementChange(idx, 'description', e.target.value)} style={{ width: '160px', padding: '6px', borderRadius: '4px' }} />
+                        </td>
+                        <td style={{ padding: '6px' }}>
+                          <select value={item.unit} onChange={(e) => handleMeasurementChange(idx, 'unit', e.target.value)} style={{ width: '65px', padding: '6px', borderRadius: '4px' }}>
+                            {UNITS_LIST.map((u) => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding: '6px' }}>
+                          <input type="number" value={item.qty} onChange={(e) => handleMeasurementChange(idx, 'qty', e.target.value)} style={{ width: '55px', padding: '6px', fontWeight: 'bold', borderRadius: '4px' }} />
+                        </td>
+                        <td style={{ padding: '6px' }}>
+                          <input type="number" value={item.rate} onChange={(e) => handleMeasurementChange(idx, 'rate', e.target.value)} style={{ width: '75px', padding: '6px', borderRadius: '4px' }} />
+                        </td>
+                        <td style={{ padding: '6px', fontWeight: 'bold', color: '#000' }}>₹{Number(item.amount || 0).toFixed(2)}</td>
+                        <td style={{ padding: '6px', textAlign: 'center' }}>
+                          <button onClick={() => removeMeasurementRow(idx)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
