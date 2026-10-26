@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 
+// Dynamic Cloud / Local Backend URL Configuration
+const BACKEND_URL = import.meta.env.VITE_API_BASE_URL || 'https://msedcl-billing-backend.onrender.com';
+
 // Master Units List
 const UNITS_LIST = ['NO', 'SET', 'KG', 'M', 'LS', 'EA', 'SQ.M', 'LTR'];
 
@@ -290,7 +293,7 @@ export default function App() {
   const fetchAllSavedInvoices = async () => {
     setLoadingHistory(true);
     try {
-      const res = await axios.get('http://localhost:8080/api/invoices');
+      const res = await axios.get(`${BACKEND_URL}/api/invoices`);
       const invoices = Array.isArray(res?.data) ? res.data : [];
       setSavedInvoicesList(invoices);
 
@@ -382,7 +385,7 @@ export default function App() {
   const handleDeleteInvoice = async (id, invNo) => {
     if (!window.confirm(`खरोखर Invoice #${invNo || id} डिलीट करायचे आहे का?`)) return;
     try {
-      await axios.delete(`http://localhost:8080/api/invoices/${id}`);
+      await axios.delete(`${BACKEND_URL}/api/invoices/${id}`);
       setSaveSuccess(`Invoice #${invNo || id} यशस्वीरीत्या काढून टाकले!`);
       fetchAllSavedInvoices();
     } catch (err) {
@@ -700,7 +703,7 @@ export default function App() {
         grandTotal,
         items: measurementItems
       };
-      const res = await axios.post('http://localhost:8080/api/invoices', payload);
+      const res = await axios.post(`${BACKEND_URL}/api/invoices`, payload);
       
       const savedNo = invoiceHeader.invoiceNo;
       setSaveSuccess(`✅ Invoice #${res?.data?.id || ''} (${savedNo}) successfully saved to MySQL database!`);
@@ -714,7 +717,7 @@ export default function App() {
 
       fetchAllSavedInvoices();
     } catch (e) {
-      alert('Save failed: Backend चालू आहे का ते तपासा.');
+      alert('Save failed: Render Backend चालू आहे का ते तपासा (किंवा 30 सेकंद थांबून पुन्हा प्रयत्न करा).');
     } finally {
       setSaving(false);
     }
