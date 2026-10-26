@@ -205,6 +205,9 @@ export default function App() {
   // Table visibility control
   const [isEditingLines, setIsEditingLines] = useState(false);
 
+  // Dedicated buffer for printing so form items are untouched on direct print
+  const [printItems, setPrintItems] = useState([]);
+
   const [measurementItems, setMeasurementItems] = useState(() => {
     const saved = localStorage.getItem('draft_measurement_items');
     if (saved) {
@@ -336,32 +339,24 @@ export default function App() {
 
   const handleLoadInvoice = (inv, mode = 'view') => {
     if (!inv) return;
-    setActiveAgencyData((prev) => ({
-      ...prev,
-      agencyName: inv.agencyName || prev.agencyName,
-      gstNo: inv.gstNo || prev.gstNo,
-      panNo: inv.panNo || prev.panNo,
-      division: inv.division || prev.division,
-      subDivision: inv.subDivision || prev.subDivision
-    }));
 
-    setInvoiceHeader((prev) => ({
-      ...prev,
-      invoiceNo: inv.invoiceNo || prev.invoiceNo,
-      invoiceDate: inv.invoiceDate || prev.invoiceDate,
-      loaNo: inv.loaNo || prev.loaNo,
-      loaDate: inv.loaDate || prev.loaDate
-    }));
+    const loadedAgency = {
+      agencyName: inv.agencyName || activeAgencyData.agencyName,
+      gstNo: inv.gstNo || activeAgencyData.gstNo,
+      panNo: inv.panNo || activeAgencyData.panNo,
+      division: inv.division || activeAgencyData.division,
+      subDivision: inv.subDivision || activeAgencyData.subDivision
+    };
 
-    if (inv.division && String(inv.division).includes('II')) {
-      setTargetDivisionName('Division No.II');
-    } else {
-      setTargetDivisionName('Division No.I');
-    }
+    const loadedHeader = {
+      invoiceNo: inv.invoiceNo || invoiceHeader.invoiceNo,
+      invoiceDate: inv.invoiceDate || invoiceHeader.invoiceDate,
+      loaNo: inv.loaNo || invoiceHeader.loaNo,
+      loaDate: inv.loaDate || invoiceHeader.loaDate
+    };
 
-    if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
-      setMeasurementItems(
-        inv.items.map((i) => ({
+    const formattedItems = (inv.items && Array.isArray(inv.items))
+      ? inv.items.map((i) => ({
           erpPoId: i.erpPoId || '',
           erpMoId: i.erpMoId || '',
           locationName: i.locationName || '',
@@ -373,15 +368,29 @@ export default function App() {
           rate: i.rate || 0,
           amount: i.amount || 0
         }))
-      );
-      setIsEditingLines(true);
+      : [];
+
+    setActiveAgencyData((prev) => ({ ...prev, ...loadedAgency }));
+    setInvoiceHeader((prev) => ({ ...prev, ...loadedHeader }));
+
+    if (inv.division && String(inv.division).includes('II')) {
+      setTargetDivisionName('Division No.II');
+    } else {
+      setTargetDivisionName('Division No.I');
     }
 
     if (mode === 'print') {
+      // Direct print kelyavar fakt print buffer madhe items set houn print dialog ughdel
+      // Billing Form madhil table open honar nahi (bandach rahil)
+      setPrintItems(formattedItems);
       setTimeout(() => {
         window.print();
       }, 300);
     } else {
+      // Fakt 'Edit in Form' kelyavrch billing form madhe items open hotiil
+      setMeasurementItems(formattedItems);
+      setPrintItems(formattedItems);
+      setIsEditingLines(true);
       setActiveTab('billing');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -404,7 +413,7 @@ export default function App() {
     const invNo = String(inv?.invoiceNo || '').toLowerCase();
     const agName = String(inv?.agencyName || '').toLowerCase();
     const gst = String(inv?.gstNo || '').toLowerCase();
-    
+
     const matchesSearch = invNo.includes(search) || agName.includes(search) || gst.includes(search);
 
     let matchesDate = true;
@@ -725,10 +734,10 @@ export default function App() {
         items: measurementItems
       };
       const res = await axios.post(`${BACKEND_URL}/api/invoices`, payload);
-      
+
       const savedNo = invoiceHeader.invoiceNo;
       setSaveSuccess(`✅ Invoice #${res?.data?.id || ''} (${savedNo}) successfully saved to MySQL database!`);
-      
+
       // Clear drafts and completely close & reset line items
       localStorage.removeItem('draft_agency_data');
       localStorage.removeItem('draft_invoice_header');
@@ -753,227 +762,232 @@ export default function App() {
     }
   };
 
-  const renderDocumentSet = (copyStamp) => (
-    <div key={copyStamp} className="document-set" style={{ pageBreakAfter: 'always' }}>
-      {/* PAGE 1: TAX INVOICE WITH ITEMIZED DETAILS */}
-      <div className="a4-page page-1" contentEditable suppressContentEditableWarning>
-        <div className="page-inner">
-          <div className="page-top-content">
-            <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 'bold' }}>{copyStamp}</div>
-            <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '4px', marginBottom: '4px' }}>
-              <h1 style={{ margin: 0, fontSize: '20px', letterSpacing: '0.5px' }}>{activeAgencyData.agencyName}</h1>
-              <p style={{ margin: '2px 0', fontSize: '11px' }}>{activeAgencyData.address}</p>
-              <p style={{ margin: '1px 0', fontSize: '10.5px' }}>E-mail : {activeAgencyData.email} | Mob: {activeAgencyData.mobile}</p>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #000', fontSize: '11px', padding: '4px 6px', fontWeight: 'bold' }}>
-              <div>PAN :- {activeAgencyData.panNo}</div>
-              <div style={{ textAlign: 'right' }}>GST No. :- {activeAgencyData.gstNo}</div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #000', fontSize: '11px' }}>
-              <div style={{ borderRight: '1px solid #000', padding: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span>Invoice No: <strong>{invoiceHeader.invoiceNo}</strong></span>
-                  <span>Date: <strong>{invoiceHeader.invoiceDate}</strong></span>
-                </div>
-                <p style={{ margin: '2px 0' }}><strong>To,</strong></p>
-                <p style={{ margin: '2px 0' }}><strong>The Executive Engineer,</strong></p>
-                <p style={{ margin: '2px 0' }}><strong>M.S.E.D.C.L. {targetDivisionName}, Jalna.</strong></p>
-              </div>
-              <div style={{ padding: '6px' }}>
-                <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>LOA.No: {invoiceHeader.loaNo}, Date: {invoiceHeader.loaDate}</p>
-                <p style={{ margin: 0, fontSize: '10px', lineHeight: '1.3' }}><strong>Sub - </strong> {activeAgencyData.subject}</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', borderTop: '1px solid #000', marginTop: '6px', paddingTop: '4px' }}>
-                  <div>Division:-</div>
-                  <div>{targetDivisionName === 'Division No.II' ? 'Jalna II' : 'Jalna I'}</div>
-                  <div>Sub-Division:-</div>
-                  <div>{activeAgencyData.subDivision}</div>
-                </div>
-              </div>
-            </div>
+  const renderDocumentSet = (copyStamp) => {
+    // Dedicated items source for printing: picks printItems if direct print was triggered, else measurementItems
+    const itemsToPrint = printItems.length > 0 ? printItems : measurementItems;
 
-            {/* ITEMIZED DETAILED INVOICE TABLE WITH PART DESCRIPTION, RATE & QTY */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', color: '#000', marginTop: '4px' }} border="1">
-              <thead>
-                <tr style={{ background: '#f8fafc', textAlign: 'center', fontWeight: 'bold' }}>
-                  <th style={{ width: '30px', padding: '4px 2px' }}>Sr.</th>
-                  <th style={{ padding: '4px 6px', textAlign: 'left' }}>Item / Description of Work & Parts</th>
-                  <th style={{ width: '45px', padding: '4px 2px' }}>Unit</th>
-                  <th style={{ width: '40px', padding: '4px 2px' }}>Qty</th>
-                  <th style={{ width: '65px', padding: '4px 4px', textAlign: 'right' }}>Rate (₹)</th>
-                  <th style={{ width: '80px', padding: '4px 6px', textAlign: 'right' }}>Amount (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Number(invoiceHeader.sch33kvAmount) > 0 && (
-                  <tr>
-                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
-                    <td style={{ padding: '4px 6px' }}><strong>Sch H4 - 33 KV Breakdown Over Head Line</strong></td>
-                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>LS</td>
-                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
-                    <td style={{ textAlign: 'right', padding: '4px 4px' }}>{Number(invoiceHeader.sch33kvAmount).toFixed(2)}</td>
-                    <td style={{ textAlign: 'right', padding: '4px 6px' }}>{Number(invoiceHeader.sch33kvAmount).toFixed(2)}</td>
+    return (
+      <div key={copyStamp} className="document-set" style={{ pageBreakAfter: 'always' }}>
+        {/* PAGE 1: TAX INVOICE WITH ITEMIZED DETAILS */}
+        <div className="a4-page page-1" contentEditable suppressContentEditableWarning>
+          <div className="page-inner">
+            <div className="page-top-content">
+              <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 'bold' }}>{copyStamp}</div>
+              <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '4px', marginBottom: '4px' }}>
+                <h1 style={{ margin: 0, fontSize: '20px', letterSpacing: '0.5px' }}>{activeAgencyData.agencyName}</h1>
+                <p style={{ margin: '2px 0', fontSize: '11px' }}>{activeAgencyData.address}</p>
+                <p style={{ margin: '1px 0', fontSize: '10.5px' }}>E-mail : {activeAgencyData.email} | Mob: {activeAgencyData.mobile}</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #000', fontSize: '11px', padding: '4px 6px', fontWeight: 'bold' }}>
+                <div>PAN :- {activeAgencyData.panNo}</div>
+                <div style={{ textAlign: 'right' }}>GST No. :- {activeAgencyData.gstNo}</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #000', fontSize: '11px' }}>
+                <div style={{ borderRight: '1px solid #000', padding: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Invoice No: <strong>{invoiceHeader.invoiceNo}</strong></span>
+                    <span>Date: <strong>{invoiceHeader.invoiceDate}</strong></span>
+                  </div>
+                  <p style={{ margin: '2px 0' }}><strong>To,</strong></p>
+                  <p style={{ margin: '2px 0' }}><strong>The Executive Engineer,</strong></p>
+                  <p style={{ margin: '2px 0' }}><strong>M.S.E.D.C.L. {targetDivisionName}, Jalna.</strong></p>
+                </div>
+                <div style={{ padding: '6px' }}>
+                  <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>LOA.No: {invoiceHeader.loaNo}, Date: {invoiceHeader.loaDate}</p>
+                  <p style={{ margin: 0, fontSize: '10px', lineHeight: '1.3' }}><strong>Sub - </strong> {activeAgencyData.subject}</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', borderTop: '1px solid #000', marginTop: '6px', paddingTop: '4px' }}>
+                    <div>Division:-</div>
+                    <div>{targetDivisionName === 'Division No.II' ? 'Jalna II' : 'Jalna I'}</div>
+                    <div>Sub-Division:-</div>
+                    <div>{activeAgencyData.subDivision}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ITEMIZED DETAILED INVOICE TABLE WITH PART DESCRIPTION, RATE & QTY */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', color: '#000', marginTop: '4px' }} border="1">
+                <thead>
+                  <tr style={{ background: '#f8fafc', textAlign: 'center', fontWeight: 'bold' }}>
+                    <th style={{ width: '30px', padding: '4px 2px' }}>Sr.</th>
+                    <th style={{ padding: '4px 6px', textAlign: 'left' }}>Item / Description of Work & Parts</th>
+                    <th style={{ width: '45px', padding: '4px 2px' }}>Unit</th>
+                    <th style={{ width: '40px', padding: '4px 2px' }}>Qty</th>
+                    <th style={{ width: '65px', padding: '4px 4px', textAlign: 'right' }}>Rate (₹)</th>
+                    <th style={{ width: '80px', padding: '4px 6px', textAlign: 'right' }}>Amount (₹)</th>
                   </tr>
-                )}
-                {measurementItems && measurementItems.length > 0 ? (
-                  measurementItems.map((item, i) => (
-                    <tr key={i}>
-                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>{(Number(invoiceHeader.sch33kvAmount) > 0 ? 2 : 1) + i}</td>
-                      <td style={{ padding: '4px 6px' }}>
-                        <div><strong>{item.description || item.itemCode || 'Breakdown Maintenance Item'}</strong></div>
-                        {item.itemCode && <div style={{ fontSize: '9px', color: '#475569' }}>Part Code: {item.itemCode} | Cat: {item.itemCategory}</div>}
-                      </td>
-                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>{item.unit}</td>
-                      <td style={{ textAlign: 'center', padding: '4px 2px', fontWeight: 'bold' }}>{item.qty}</td>
-                      <td style={{ textAlign: 'right', padding: '4px 4px' }}>{Number(item.rate || 0).toFixed(2)}</td>
-                      <td style={{ textAlign: 'right', padding: '4px 6px' }}>{Number(item.amount || 0).toFixed(2)}</td>
+                </thead>
+                <tbody>
+                  {Number(invoiceHeader.sch33kvAmount) > 0 && (
+                    <tr>
+                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
+                      <td style={{ padding: '4px 6px' }}><strong>Sch H4 - 33 KV Breakdown Over Head Line</strong></td>
+                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>LS</td>
+                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
+                      <td style={{ textAlign: 'right', padding: '4px 4px' }}>{Number(invoiceHeader.sch33kvAmount).toFixed(2)}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 6px' }}>{Number(invoiceHeader.sch33kvAmount).toFixed(2)}</td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
-                    <td style={{ padding: '4px 6px' }}>Sch H6 - 11 KV Breakdown Over Head Line</td>
-                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>LS</td>
-                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
-                    <td style={{ textAlign: 'right', padding: '4px 4px' }}>{calculatedSch11kv.toFixed(2)}</td>
-                    <td style={{ textAlign: 'right', padding: '4px 6px' }}>{calculatedSch11kv.toFixed(2)}</td>
-                  </tr>
-                )}
+                  )}
+                  {itemsToPrint && itemsToPrint.length > 0 ? (
+                    itemsToPrint.map((item, i) => (
+                      <tr key={i}>
+                        <td style={{ textAlign: 'center', padding: '4px 2px' }}>{(Number(invoiceHeader.sch33kvAmount) > 0 ? 2 : 1) + i}</td>
+                        <td style={{ padding: '4px 6px' }}>
+                          <div><strong>{item.description || item.itemCode || 'Breakdown Maintenance Item'}</strong></div>
+                          {item.itemCode && <div style={{ fontSize: '9px', color: '#475569' }}>Part Code: {item.itemCode} | Cat: {item.itemCategory}</div>}
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '4px 2px' }}>{item.unit}</td>
+                        <td style={{ textAlign: 'center', padding: '4px 2px', fontWeight: 'bold' }}>{item.qty}</td>
+                        <td style={{ textAlign: 'right', padding: '4px 4px' }}>{Number(item.rate || 0).toFixed(2)}</td>
+                        <td style={{ textAlign: 'right', padding: '4px 6px' }}>{Number(item.amount || 0).toFixed(2)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
+                      <td style={{ padding: '4px 6px' }}>Sch H6 - 11 KV Breakdown Over Head Line</td>
+                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>LS</td>
+                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>1</td>
+                      <td style={{ textAlign: 'right', padding: '4px 4px' }}>{calculatedSch11kv.toFixed(2)}</td>
+                      <td style={{ textAlign: 'right', padding: '4px 6px' }}>{calculatedSch11kv.toFixed(2)}</td>
+                    </tr>
+                  )}
 
-                <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
-                  <td colSpan="5" style={{ textAlign: 'right', padding: '5px 6px' }}>Gross Total of Works (Total Breakdown):</td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px' }}>{totalBreakdown.toFixed(2)}</td>
-                </tr>
-                {Number(invoiceHeader.belowRatePercent) > 0 && (
-                  <tr>
-                    <td colSpan="4" style={{ textAlign: 'right', padding: '4px 6px' }}>Less: Below Tender Rate Rebate</td>
-                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>{Number(invoiceHeader.belowRatePercent).toFixed(2)}%</td>
-                    <td style={{ textAlign: 'right', padding: '4px 6px' }}>- {belowRateDeduction.toFixed(2)}</td>
+                  <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
+                    <td colSpan="5" style={{ textAlign: 'right', padding: '5px 6px' }}>Gross Total of Works (Total Breakdown):</td>
+                    <td style={{ textAlign: 'right', padding: '5px 6px' }}>{totalBreakdown.toFixed(2)}</td>
                   </tr>
-                )}
-                <tr style={{ fontWeight: 'bold' }}>
-                  <td colSpan="5" style={{ textAlign: 'right', padding: '5px 6px' }}>Total Taxable Value (Sub-Total):</td>
-                  <td style={{ textAlign: 'right', padding: '5px 6px' }}>{subTotal.toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td colSpan="4" style={{ textAlign: 'right', padding: '4px 6px' }}>Central GST (CGST)</td>
-                  <td style={{ textAlign: 'center', padding: '4px 2px' }}>9.00%</td>
-                  <td style={{ textAlign: 'right', padding: '4px 6px' }}>{cgst.toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td colSpan="4" style={{ textAlign: 'right', padding: '4px 6px' }}>State GST (SGST)</td>
-                  <td style={{ textAlign: 'center', padding: '4px 2px' }}>9.00%</td>
-                  <td style={{ textAlign: 'right', padding: '4px 6px' }}>{sgst.toFixed(2)}</td>
-                </tr>
-                <tr style={{ fontWeight: 'bold', background: '#f1f5f9', fontSize: '11.5px' }}>
-                  <td colSpan="5" style={{ textAlign: 'right', padding: '6px 6px' }}>Grand Total (Total Invoice Value):</td>
-                  <td style={{ textAlign: 'right', padding: '6px 6px', fontSize: '12px' }}>₹{grandTotal.toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
-            
-            {/* Amount in words */}
-            <div style={{ border: '1px solid #000', borderTop: 'none', padding: '6px 10px', fontSize: '10.5px', background: '#fff' }}>
-              <div style={{ fontWeight: 'bold', color: '#334155', textTransform: 'uppercase', fontSize: '9.5px' }}>Amount Chargeable (in words):</div>
-              <div style={{ fontWeight: 'bold', color: '#000000', marginTop: '2px', fontSize: '11px' }}>
-                {convertNumberToIndianWords(grandTotal)}
+                  {Number(invoiceHeader.belowRatePercent) > 0 && (
+                    <tr>
+                      <td colSpan="4" style={{ textAlign: 'right', padding: '4px 6px' }}>Less: Below Tender Rate Rebate</td>
+                      <td style={{ textAlign: 'center', padding: '4px 2px' }}>{Number(invoiceHeader.belowRatePercent).toFixed(2)}%</td>
+                      <td style={{ textAlign: 'right', padding: '4px 6px' }}>- {belowRateDeduction.toFixed(2)}</td>
+                    </tr>
+                  )}
+                  <tr style={{ fontWeight: 'bold' }}>
+                    <td colSpan="5" style={{ textAlign: 'right', padding: '5px 6px' }}>Total Taxable Value (Sub-Total):</td>
+                    <td style={{ textAlign: 'right', padding: '5px 6px' }}>{subTotal.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'right', padding: '4px 6px' }}>Central GST (CGST)</td>
+                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>9.00%</td>
+                    <td style={{ textAlign: 'right', padding: '4px 6px' }}>{cgst.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'right', padding: '4px 6px' }}>State GST (SGST)</td>
+                    <td style={{ textAlign: 'center', padding: '4px 2px' }}>9.00%</td>
+                    <td style={{ textAlign: 'right', padding: '4px 6px' }}>{sgst.toFixed(2)}</td>
+                  </tr>
+                  <tr style={{ fontWeight: 'bold', background: '#f1f5f9', fontSize: '11.5px' }}>
+                    <td colSpan="5" style={{ textAlign: 'right', padding: '6px 6px' }}>Grand Total (Total Invoice Value):</td>
+                    <td style={{ textAlign: 'right', padding: '6px 6px', fontSize: '12px' }}>₹{grandTotal.toFixed(2)}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Amount in words */}
+              <div style={{ border: '1px solid #000', borderTop: 'none', padding: '6px 10px', fontSize: '10.5px', background: '#fff' }}>
+                <div style={{ fontWeight: 'bold', color: '#334155', textTransform: 'uppercase', fontSize: '9.5px' }}>Amount Chargeable (in words):</div>
+                <div style={{ fontWeight: 'bold', color: '#000000', marginTop: '2px', fontSize: '11px' }}>
+                  {convertNumberToIndianWords(grandTotal)}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.5fr', border: '1.5px solid #000', fontSize: '9.5px', minHeight: '90px', marginTop: '10px' }}>
+              <div style={{ padding: '6px', borderRight: '1px solid #000', lineHeight: '1.4' }}>
+                <strong>Declaration :- </strong>I/WE HEREBY CERTIFY MY/OUR REGISTRATION CERTIFICATE UNDR MAHARASHTRA VALUE ADDED TAX ACT 2005 IS IN FORCE...
+              </div>
+              <div style={{ textAlign: 'center', padding: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '10.5px' }}>For {activeAgencyData.agencyName}</div>
+                <div style={{ borderTop: '1px solid #000', paddingTop: '4px', fontSize: '10.5px', fontWeight: 'bold' }}>Authorised Signatory</div>
               </div>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.5fr', border: '1.5px solid #000', fontSize: '9.5px', minHeight: '90px', marginTop: '10px' }}>
-            <div style={{ padding: '6px', borderRight: '1px solid #000', lineHeight: '1.4' }}>
-              <strong>Declaration :- </strong>I/WE HEREBY CERTIFY MY/OUR REGISTRATION CERTIFICATE UNDR MAHARASHTRA VALUE ADDED TAX ACT 2005 IS IN FORCE...
-            </div>
-            <div style={{ textAlign: 'center', padding: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '10.5px' }}>For {activeAgencyData.agencyName}</div>
-              <div style={{ borderTop: '1px solid #000', paddingTop: '4px', fontSize: '10.5px', fontWeight: 'bold' }}>Authorised Signatory</div>
-            </div>
-          </div>
         </div>
-      </div>
 
-      {/* PAGE 2: CERTIFICATE */}
-      <div className="a4-page page-2" contentEditable suppressContentEditableWarning>
-        <div className="page-inner">
-          <div className="page-top-content">
-            <div style={{ textAlign: 'center', marginBottom: '14px' }}>
-              <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', textDecoration: 'underline' }}>Certificate</h2>
+        {/* PAGE 2: CERTIFICATE */}
+        <div className="a4-page page-2" contentEditable suppressContentEditableWarning>
+          <div className="page-inner">
+            <div className="page-top-content">
+              <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+                <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', textDecoration: 'underline' }}>Certificate</h2>
+              </div>
+              <div style={{ background: '#ffff00', color: '#000000', padding: '10px 14px', border: '1.5px solid #000', textAlign: 'center', fontWeight: 'bold', fontSize: '12.5px', marginBottom: '14px' }}>
+                <div style={{ marginBottom: '4px' }}>1) LOA NO:- {invoiceHeader.loaNo} Dt.{invoiceHeader.loaDate}</div>
+                <div>2) Work Order No:- {invoiceHeader.workOrderNo} Date: {invoiceHeader.workOrderDates}</div>
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px' }}>This is to certify that -</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }} border="1">
+                <tbody>
+                  <tr><td style={{ width: '35px', textAlign: 'center', padding: '5px' }}>1</td><td colSpan="2" style={{ padding: '5px' }}>The work is completed as Per M.S.E.D.C.L standard method of Construction</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>2</td><td colSpan="2" style={{ padding: '5px' }}>Work is Completed Within time limit as given by concern Section Officer.</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>3</td><td colSpan="2" style={{ padding: '5px' }}>No T & P issued by MSEDCL to Contractor.</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>4</td><td colSpan="2" style={{ padding: '5px' }}>No material is issued by MSEDCL to Contractor.</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>5</td><td colSpan="2" style={{ padding: '5px' }}>No T & P has been provided to the contractor.</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>6</td><td colSpan="2" style={{ padding: '5px' }}>No material balance with Contractor. Claim is correct to the best of knowledge.</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>7</td><td colSpan="2" style={{ padding: '5px' }}>No Damages occurred to MSEDCL Properties during execution</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>8</td><td colSpan="2" style={{ padding: '5px' }}>Work has been executed under the supervision of Section Officer & SDO</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>9</td><td colSpan="2" style={{ padding: '5px' }}>Material Supplied by Agency is as per Standard Specifications</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>10</td><td colSpan="2" style={{ padding: '5px' }}>Material Supplied by Agency is inspected & approved by undersigned SDO</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>11</td><td colSpan="2" style={{ padding: '5px' }}>The measurement taken jointly by contractor & Section Officer</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>12</td><td colSpan="2" style={{ padding: '5px' }}>Photographs uploaded on MSEDCL Website.</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>13</td><td colSpan="2" style={{ padding: '5px' }}>Old removed material deposited in section office store</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>14</td><td style={{ padding: '5px' }}>Work Started: <strong>{invoiceHeader.workStartedDate}</strong></td><td style={{ padding: '5px' }}>Completed: <strong>{invoiceHeader.workCompletedDate}</strong></td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>15</td><td colSpan="2" style={{ padding: '5px' }}>Variation in claimed quantities in the bill are technically justified.</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>16</td><td colSpan="2" style={{ padding: '5px' }}>These bills are not claimed previously.</td></tr>
+                  <tr><td style={{ textAlign: 'center', padding: '5px' }}>17</td><td colSpan="2" style={{ padding: '5px' }}>Sites 100% verified and found work satisfactory.</td></tr>
+                </tbody>
+              </table>
             </div>
-            <div style={{ background: '#ffff00', color: '#000000', padding: '10px 14px', border: '1.5px solid #000', textAlign: 'center', fontWeight: 'bold', fontSize: '12.5px', marginBottom: '14px' }}>
-              <div style={{ marginBottom: '4px' }}>1) LOA NO:- {invoiceHeader.loaNo} Dt.{invoiceHeader.loaDate}</div>
-              <div>2) Work Order No:- {invoiceHeader.workOrderNo} Date: {invoiceHeader.workOrderDates}</div>
+            <div style={{ marginTop: '50px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', textAlign: 'center', fontWeight: 'bold' }}>
+              <div><p>_____________________</p><p>Section Engineer</p></div>
+              <div><p>_____________________</p><p>Assistant Engineer</p></div>
+              <div><p>_____________________</p><p>Executive Engineer</p></div>
             </div>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px' }}>This is to certify that -</div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }} border="1">
-              <tbody>
-                <tr><td style={{ width: '35px', textAlign: 'center', padding: '5px' }}>1</td><td colSpan="2" style={{ padding: '5px' }}>The work is completed as Per M.S.E.D.C.L standard method of Construction</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>2</td><td colSpan="2" style={{ padding: '5px' }}>Work is Completed Within time limit as given by concern Section Officer.</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>3</td><td colSpan="2" style={{ padding: '5px' }}>No T & P issued by MSEDCL to Contractor.</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>4</td><td colSpan="2" style={{ padding: '5px' }}>No material is issued by MSEDCL to Contractor.</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>5</td><td colSpan="2" style={{ padding: '5px' }}>No T & P has been provided to the contractor.</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>6</td><td colSpan="2" style={{ padding: '5px' }}>No material balance with Contractor. Claim is correct to the best of knowledge.</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>7</td><td colSpan="2" style={{ padding: '5px' }}>No Damages occurred to MSEDCL Properties during execution</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>8</td><td colSpan="2" style={{ padding: '5px' }}>Work has been executed under the supervision of Section Officer & SDO</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>9</td><td colSpan="2" style={{ padding: '5px' }}>Material Supplied by Agency is as per Standard Specifications</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>10</td><td colSpan="2" style={{ padding: '5px' }}>Material Supplied by Agency is inspected & approved by undersigned SDO</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>11</td><td colSpan="2" style={{ padding: '5px' }}>The measurement taken jointly by contractor & Section Officer</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>12</td><td colSpan="2" style={{ padding: '5px' }}>Photographs uploaded on MSEDCL Website.</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>13</td><td colSpan="2" style={{ padding: '5px' }}>Old removed material deposited in section office store</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>14</td><td style={{ padding: '5px' }}>Work Started: <strong>{invoiceHeader.workStartedDate}</strong></td><td style={{ padding: '5px' }}>Completed: <strong>{invoiceHeader.workCompletedDate}</strong></td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>15</td><td colSpan="2" style={{ padding: '5px' }}>Variation in claimed quantities in the bill are technically justified.</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>16</td><td colSpan="2" style={{ padding: '5px' }}>These bills are not claimed previously.</td></tr>
-                <tr><td style={{ textAlign: 'center', padding: '5px' }}>17</td><td colSpan="2" style={{ padding: '5px' }}>Sites 100% verified and found work satisfactory.</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div style={{ marginTop: '50px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', textAlign: 'center', fontWeight: 'bold' }}>
-            <div><p>_____________________</p><p>Section Engineer</p></div>
-            <div><p>_____________________</p><p>Assistant Engineer</p></div>
-            <div><p>_____________________</p><p>Executive Engineer</p></div>
           </div>
         </div>
-      </div>
 
-      {/* PAGE 3: WORK COMPLETION REPORT */}
-      <div className="a4-page page-3" contentEditable suppressContentEditableWarning>
-        <div className="page-inner">
-          <div className="page-top-content">
-            <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '8px', marginBottom: '10px' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', letterSpacing: '0.5px' }}>MAHARASHTRA STATE ELECTRICTY DISTRIBUTION CO.Ltd</h3>
-              <h4 style={{ margin: '4px 0 0', fontSize: '15px' }}>O&M JALNA {targetDivisionName === 'Division No.II' ? 'DIVISION NO II' : 'DIVISION NO I'} JALNA</h4>
+        {/* PAGE 3: WORK COMPLETION REPORT */}
+        <div className="a4-page page-3" contentEditable suppressContentEditableWarning>
+          <div className="page-inner">
+            <div className="page-top-content">
+              <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '8px', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0, fontSize: '16px', letterSpacing: '0.5px' }}>MAHARASHTRA STATE ELECTRICTY DISTRIBUTION CO.Ltd</h3>
+                <h4 style={{ margin: '4px 0 0', fontSize: '15px' }}>O&M JALNA {targetDivisionName === 'Division No.II' ? 'DIVISION NO II' : 'DIVISION NO I'} JALNA</h4>
+              </div>
+              <div style={{ textAlign: 'center', fontStyle: 'italic', textDecoration: 'underline', fontWeight: 'bold', fontSize: '14px', margin: '12px 0' }}>
+                WORK COMPLETION REPORT
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }} border="1">
+                <tbody>
+                  <tr><td style={{ width: '45%', padding: '7px 6px', fontWeight: 'bold' }}>Circle Office :-</td><td style={{ padding: '7px 6px' }}>{activeAgencyData.circleOffice}</td></tr>
+                  <tr><td style={{ width: '45%', padding: '7px 6px', fontWeight: 'bold' }}>Division :-</td><td style={{ padding: '7px 6px' }}>{targetDivisionName === 'Division No.II' ? 'Division II' : 'Division I'} {activeAgencyData.circleOffice}</td></tr>
+                  <tr><td style={{ width: '45%', padding: '7px 6px', fontWeight: 'bold' }}>Name Of Sub Division :-</td><td style={{ padding: '7px 6px' }}>{activeAgencyData.subDivision}</td></tr>
+                  <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>1. Name Of Agency :-</td><td style={{ padding: '7px 6px' }}>{activeAgencyData.agencyName} {activeAgencyData.circleOffice}</td></tr>
+                  <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>2. LOA / Award No. {invoiceHeader.empanelmentNo} :-</td><td style={{ padding: '7px 6px' }}>Dtd {invoiceHeader.empanelmentDate}</td></tr>
+                  <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>3. Name Of Scheme :-</td><td style={{ padding: '7px 6px' }}>{activeAgencyData.schemeName}</td></tr>
+                  <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>4. Work Order No/Po No:-</td><td style={{ padding: '7px 6px' }}>{invoiceHeader.workOrderNo}</td></tr>
+                  <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>DATE OF WORK STARTED</td><td style={{ padding: '7px 6px' }}>{invoiceHeader.workStartedDate}</td></tr>
+                  <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>DATE OF COMPLETION</td><td style={{ padding: '7px 6px' }}>{invoiceHeader.workCompletedDate}</td></tr>
+                  <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>DATE OF COMMISSIONING</td><td style={{ padding: '7px 6px' }}>{invoiceHeader.commissioningDate}</td></tr>
+                  <tr><td colSpan="2" style={{ padding: '10px 6px', fontWeight: 'bold' }}>JUSTIFICATION FOR EXCESS/SAVING :- {activeAgencyData.justification}</td></tr>
+                  <tr><td colSpan="2" style={{ padding: '12px 6px' }}>Above work is completed by this Agency satisfactory and stipulated time limit by order.</td></tr>
+                </tbody>
+              </table>
             </div>
-            <div style={{ textAlign: 'center', fontStyle: 'italic', textDecoration: 'underline', fontWeight: 'bold', fontSize: '14px', margin: '12px 0' }}>
-              WORK COMPLETION REPORT
+            <div style={{ marginTop: '50px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', textAlign: 'center', fontWeight: 'bold' }}>
+              <div><p>_____________________</p><p>Junior Engineer / Section Head</p></div>
+              <div><p>_____________________</p><p>Deputy Executive Engineer</p></div>
+              <div><p>_____________________</p><p>Executive Engineer</p></div>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }} border="1">
-              <tbody>
-                <tr><td style={{ width: '45%', padding: '7px 6px', fontWeight: 'bold' }}>Circle Office :-</td><td style={{ padding: '7px 6px' }}>{activeAgencyData.circleOffice}</td></tr>
-                <tr><td style={{ width: '45%', padding: '7px 6px', fontWeight: 'bold' }}>Division :-</td><td style={{ padding: '7px 6px' }}>{targetDivisionName === 'Division No.II' ? 'Division II' : 'Division I'} {activeAgencyData.circleOffice}</td></tr>
-                <tr><td style={{ width: '45%', padding: '7px 6px', fontWeight: 'bold' }}>Name Of Sub Division :-</td><td style={{ padding: '7px 6px' }}>{activeAgencyData.subDivision}</td></tr>
-                <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>1. Name Of Agency :-</td><td style={{ padding: '7px 6px' }}>{activeAgencyData.agencyName} {activeAgencyData.circleOffice}</td></tr>
-                <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>2. LOA / Award No. {invoiceHeader.empanelmentNo} :-</td><td style={{ padding: '7px 6px' }}>Dtd {invoiceHeader.empanelmentDate}</td></tr>
-                <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>3. Name Of Scheme :-</td><td style={{ padding: '7px 6px' }}>{activeAgencyData.schemeName}</td></tr>
-                <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>4. Work Order No/Po No:-</td><td style={{ padding: '7px 6px' }}>{invoiceHeader.workOrderNo}</td></tr>
-                <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>DATE OF WORK STARTED</td><td style={{ padding: '7px 6px' }}>{invoiceHeader.workStartedDate}</td></tr>
-                <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>DATE OF COMPLETION</td><td style={{ padding: '7px 6px' }}>{invoiceHeader.workCompletedDate}</td></tr>
-                <tr><td style={{ padding: '7px 6px', fontWeight: 'bold' }}>DATE OF COMMISSIONING</td><td style={{ padding: '7px 6px' }}>{invoiceHeader.commissioningDate}</td></tr>
-                <tr><td colSpan="2" style={{ padding: '10px 6px', fontWeight: 'bold' }}>JUSTIFICATION FOR EXCESS/SAVING :- {activeAgencyData.justification}</td></tr>
-                <tr><td colSpan="2" style={{ padding: '12px 6px' }}>Above work is completed by this Agency satisfactory and stipulated time limit by order.</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div style={{ marginTop: '50px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', textAlign: 'center', fontWeight: 'bold' }}>
-            <div><p>_____________________</p><p>Junior Engineer / Section Head</p></div>
-            <div><p>_____________________</p><p>Deputy Executive Engineer</p></div>
-            <div><p>_____________________</p><p>Executive Engineer</p></div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div style={{ fontFamily: 'Segoe UI, Arial, sans-serif', background: '#f8fafc', minHeight: '100vh', color: '#0f172a' }}>
-      
+
       {/* ZERO-CONFIGURATION FULL A4 PRINT CSS */}
       <style>{`
         input, select, textarea {
@@ -1169,7 +1183,7 @@ export default function App() {
                 तारीख श्रेणी किंवा शोध वापरून बिले फिल्टर करा आणि एक्सेल अहवाल डाऊनलोड करा.
               </p>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b' }}>From:</span>
@@ -1471,7 +1485,7 @@ export default function App() {
       {/* ================= TAB 3: BILLING SCREEN ================= */}
       {activeTab === 'billing' && (
         <div className="no-print" style={{ maxWidth: '1320px', margin: '0 auto 30px' }}>
-          
+
           {/* Section 1: Agency Details */}
           <div style={{ background: '#fff', padding: '20px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
