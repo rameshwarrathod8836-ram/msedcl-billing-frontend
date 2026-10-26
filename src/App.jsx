@@ -196,6 +196,13 @@ export default function App() {
     };
   });
 
+  // Persistent default PO, MO & Location memory state
+  const [defaultLineParams, setDefaultLineParams] = useState({
+    erpPoId: '4780459015',
+    erpMoId: '400003601315',
+    locationName: '013405|203-AMBADGAON-AG'
+  });
+
   const [measurementItems, setMeasurementItems] = useState(() => {
     const saved = localStorage.getItem('draft_measurement_items');
     if (saved) {
@@ -640,6 +647,12 @@ export default function App() {
       const r = Number(field === 'rate' ? val : updated[index].rate) || 0;
       updated[index].amount = Math.round(q * r * 100) / 100;
     }
+
+    // Remember PO, MO and Location as defaults for future items
+    if (['erpPoId', 'erpMoId', 'locationName'].includes(field)) {
+      setDefaultLineParams((prev) => ({ ...prev, [field]: val }));
+    }
+
     setMeasurementItems(updated);
   };
 
@@ -658,13 +671,17 @@ export default function App() {
   };
 
   const addMeasurementRow = () => {
-    const last = measurementItems.length > 0 ? measurementItems[measurementItems.length - 1] : {};
+    // Pick the last row's PO, MO, Location if available, else pick from defaultLineParams
+    const fallbackSource = measurementItems.length > 0 
+      ? measurementItems[measurementItems.length - 1] 
+      : defaultLineParams;
+
     setMeasurementItems([
       ...measurementItems,
       {
-        erpPoId: last.erpPoId || '',
-        erpMoId: last.erpMoId || '',
-        locationName: last.locationName || '',
+        erpPoId: fallbackSource.erpPoId || defaultLineParams.erpPoId || '',
+        erpMoId: fallbackSource.erpMoId || defaultLineParams.erpMoId || '',
+        locationName: fallbackSource.locationName || defaultLineParams.locationName || '',
         itemCategory: 'Material MIGO',
         itemCode: '',
         description: '',
