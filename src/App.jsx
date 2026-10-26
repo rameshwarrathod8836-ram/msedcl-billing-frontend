@@ -202,17 +202,18 @@ export default function App() {
     locationName: '013405|203-AMBADGAON-AG'
   });
 
+  // Table visibility control
+  const [isEditingLines, setIsEditingLines] = useState(false);
+
   const [measurementItems, setMeasurementItems] = useState(() => {
     const saved = localStorage.getItem('draft_measurement_items');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try { 
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
     }
-    return [
-      { erpPoId: '4780459015', erpMoId: '400003601315', locationName: '013405|203-AMBADGAON-AG', itemCategory: 'Material MIGO', itemCode: '16402030015', description: '11KV 45 KN DISC INSULATORS', unit: 'NO', qty: 6, rate: 295, amount: 1770 },
-      { erpPoId: '4780459015', erpMoId: '400003601315', locationName: '013405|203-AMBADGAON-AG', itemCategory: 'Material MIGO', itemCode: '21020501025', description: 'HT STAY SETS', unit: 'SET', qty: 5, rate: 807, amount: 4035 },
-      { erpPoId: '4780459015', erpMoId: '400003601315', locationName: '013405|203-AMBADGAON-AG', itemCategory: 'Services SES', itemCode: 'BM.HT.OH.004', description: 'Repl of faulty pin insulator', unit: 'NO', qty: 8, rate: 183, amount: 1464 },
-      { erpPoId: '4780459015', erpMoId: '400003601315', locationName: '013405|203-AMBADGAON-AG', itemCategory: 'Centages SES', itemCode: 'CENTAGE-PM', description: 'PM Centages', unit: 'LS', qty: 1, rate: 1222, amount: 1222 }
-    ];
+    return [];
   });
 
   useEffect(() => {
@@ -373,6 +374,7 @@ export default function App() {
           amount: i.amount || 0
         }))
       );
+      setIsEditingLines(true);
     }
 
     if (mode === 'print') {
@@ -665,6 +667,7 @@ export default function App() {
   };
 
   const addMeasurementRow = () => {
+    setIsEditingLines(true);
     const fallbackSource = measurementItems.length > 0 
       ? measurementItems[measurementItems.length - 1] 
       : defaultLineParams;
@@ -687,7 +690,11 @@ export default function App() {
   };
 
   const removeMeasurementRow = (idx) => {
-    setMeasurementItems(measurementItems.filter((_, i) => i !== idx));
+    const remaining = measurementItems.filter((_, i) => i !== idx);
+    setMeasurementItems(remaining);
+    if (remaining.length === 0) {
+      setIsEditingLines(false);
+    }
   };
 
   const handleSaveToBackend = async () => {
@@ -722,11 +729,13 @@ export default function App() {
       const savedNo = invoiceHeader.invoiceNo;
       setSaveSuccess(`✅ Invoice #${res?.data?.id || ''} (${savedNo}) successfully saved to MySQL database!`);
       
+      // Clear drafts and completely close & reset line items
       localStorage.removeItem('draft_agency_data');
       localStorage.removeItem('draft_invoice_header');
       localStorage.removeItem('draft_measurement_items');
 
       setMeasurementItems([]);
+      setIsEditingLines(false);
 
       const nextNo = generateNextInvoiceNo(savedNo);
       setInvoiceHeader((prev) => ({ 
@@ -1681,36 +1690,47 @@ export default function App() {
               <h2 style={{ fontSize: '15px', margin: 0, fontWeight: 'bold' }}>
                 2. Measurement Line Items (11 KV Total Auto-Sum: ₹{calculatedSch11kv.toFixed(2)})
               </h2>
-              <button onClick={addMeasurementRow} style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+              <button 
+                onClick={addMeasurementRow} 
+                style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
                 ➕ Add Line Item
               </button>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={{ padding: '8px' }}>PO & MO ID</th>
-                    <th style={{ padding: '8px' }}>Location</th>
-                    <th style={{ padding: '8px' }}>Category</th>
-                    <th style={{ padding: '8px' }}>Select Agency Part (Auto-Suggest)</th>
-                    <th style={{ padding: '8px' }}>Description (Editable)</th>
-                    <th style={{ padding: '8px', width: '70px' }}>Unit</th>
-                    <th style={{ padding: '8px', width: '60px' }}>Qty</th>
-                    <th style={{ padding: '8px', width: '80px' }}>Rate (₹)</th>
-                    <th style={{ padding: '8px', width: '90px' }}>Amount (₹)</th>
-                    <th style={{ padding: '8px', width: '40px' }}>Del</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {measurementItems.length === 0 ? (
-                    <tr>
-                      <td colSpan="10" style={{ textAlign: 'center', padding: '25px', color: '#64748b', fontWeight: 'bold', background: '#f8fafc' }}>
-                        नवीन बिलासाठी वरील ➕ Add Line Item वर क्लिक करा!
-                      </td>
+            {/* JEVHA IS_EDITING FALSE ASNAAR TEVHA POORN TABLE HIDE HONAAR */}
+            {!isEditingLines || measurementItems.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '36px 20px', background: '#f8fafc', borderRadius: '8px', border: '2px dashed #cbd5e1' }}>
+                <div style={{ fontSize: '28px', marginBottom: '8px' }}>📝</div>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#475569', marginBottom: '12px' }}>
+                  बिल सेव्ह झाले आहे! खालील आयटम लिस्ट बंद करण्यात आली आहे.
+                </div>
+                <button
+                  onClick={addMeasurementRow}
+                  style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  ➕ Add New Line Items for Next Bill
+                </button>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                      <th style={{ padding: '8px' }}>PO & MO ID</th>
+                      <th style={{ padding: '8px' }}>Location</th>
+                      <th style={{ padding: '8px' }}>Category</th>
+                      <th style={{ padding: '8px' }}>Select Agency Part (Auto-Suggest)</th>
+                      <th style={{ padding: '8px' }}>Description (Editable)</th>
+                      <th style={{ padding: '8px', width: '70px' }}>Unit</th>
+                      <th style={{ padding: '8px', width: '60px' }}>Qty</th>
+                      <th style={{ padding: '8px', width: '80px' }}>Rate (₹)</th>
+                      <th style={{ padding: '8px', width: '90px' }}>Amount (₹)</th>
+                      <th style={{ padding: '8px', width: '40px' }}>Del</th>
                     </tr>
-                  ) : (
-                    measurementItems.map((item, idx) => (
+                  </thead>
+                  <tbody>
+                    {measurementItems.map((item, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '6px' }}>
                           <input type="text" placeholder="PO ID" value={item.erpPoId} onChange={(e) => handleMeasurementChange(idx, 'erpPoId', e.target.value)} style={{ width: '85px', padding: '6px', marginBottom: '3px', borderRadius: '4px' }} />
@@ -1770,11 +1790,11 @@ export default function App() {
                           <button onClick={() => removeMeasurementRow(idx)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
         </div>
